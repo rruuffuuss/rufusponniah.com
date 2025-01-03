@@ -1,0 +1,64 @@
+<canvas id="canvas"></canvas>
+<!-- vertex shader -->
+<script id="vertex-shader-2d" type="x-shader/x-vertex">
+in vec2 a_position;
+in vec2 a_oldPosition;
+in vec2 a_origin;
+in vec2 a_clipSpaceOrigin;
+
+out vec2 o_position;
+out vec2 o_oldPosition;
+
+out vec2 o_push1;
+out vec2 o_push2;
+
+out vec4 colour; 
+
+uniform float drag;
+uniform vec2 screen;
+uniform vec2 size
+uniform vec2 u_resolution;
+
+void main() {
+
+  //update position to displacement between current position and previous position
+  o_position = a_position + (a_position - a_oldPosition) * drag;
+
+
+  //if a point is outside the bounds of the screen, swap new and old (reverse velocity) 
+  if(o_position.x > screen.x || o_position.x < 0.0){
+    o_oldPosition.x = o_position.x;
+    o_position = a_position.x;
+  } else {
+    o_oldPosition.x = a_position.x;
+  }
+
+  if(o_position.y > screen.y || o_position.y < 0.0){
+    o_oldPosition.y = o_position.y;
+    o_position = a_position.y;
+  } else {
+    o_oldPosition.y = a_position.y;
+  }
+  
+  //since tiles do not move, just change colour based on particle, gl_Position can be pre computed
+}
+</script>
+<!-- fragment shader -->
+<script id="fragment-shader-2d" type="x-shader/x-fragment">
+precision mediump float;
+
+in vec4 colour
+
+void main() {
+   gl_FragColor = colour;
+}
+</script><!--
+for most samples webgl-utils only provides shader compiling/linking and
+canvas resizing because why clutter the examples with code that's the same in every sample.
+See https://webglfundamentals.org/webgl/lessons/webgl-boilerplate.html
+and https://webglfundamentals.org/webgl/lessons/webgl-resizing-the-canvas.html
+for webgl-utils, m3, m4, and webgl-lessons-ui.
+-->
+<script src="https://greggman.github.io/webgl-lint/webgl-lint.js"></script>
+<script src="webgl-utils.js"></script>
+<script src="webGLbackground.js"></script>
