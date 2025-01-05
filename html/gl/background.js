@@ -19,7 +19,7 @@ function main() {
     //let points = new Float32Array(pointsNumber * 4);
     var pingpong = false;
 
-    
+    /*
     var points = new Float32Array([
         0.2, 0.2, 0.6, 0.6,
         0.0, 0.0, 0.0, 0.0,
@@ -30,15 +30,17 @@ function main() {
         0.2, 0.2, 0.4, 0.4,
         0.8, 0.8, 0.6, 0.6,
         0.8, 0.8, 0.6, 0.6
-    ]);
+    ]);*/
 
-    //console.log(points);
-    
+    var points = generatePoints();
+
+    console.log(points);
+
     // Setup update graphics library
     /** @type {HTMLCanvasElement} */
     var dummy = document.querySelector("#dummy");
-    var textureWidth = 3;//columns;
-    var textureHeight = 3;//rows;
+    var textureWidth = columnNumber;
+    var textureHeight = rowNumber;
     var gl = dummy.getContext("webgl2");
 
     const pong = gl.createTexture();
@@ -53,7 +55,7 @@ function main() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     var dr = canvas.getContext("webgl2");
-    
+
     var positionBuffer;
 
 
@@ -61,10 +63,10 @@ function main() {
     updateSetup();
     drawSetup();
 
-    pointsAnimation = setInterval(function () { 
+    var pointsAnimation = setInterval(function () {
         updateParticles();
         drawParticles();
-    }, 50);
+    }, 10);
 
 
     function drawSetup() {
@@ -75,7 +77,7 @@ function main() {
 
         const updateProgram = webglUtils.createProgramFromScripts(dr, ["vertex-draw-particles", "fragment-draw-particles"]);
         dr.useProgram(updateProgram);
-    
+
 
         //webglUtils.resizeCanvasToDisplaySize(dr.canvas);
 
@@ -248,6 +250,23 @@ function main() {
 
         gl.readPixels(0, 0, textureWidth, textureHeight, gl.RGBA, gl.FLOAT, points);
     }
+
+    function generatePoints() {
+        let xStep = 2 / columnNumber;
+        let yStep = 2 * (window.innerHeight / window.innerWidth)  / rowNumber;
+
+        let points = new Float32Array(4 * columnNumber * rowNumber);
+        for (let y = 0; y <= rowNumber; y++) {
+            for (let x = 0; x <= columnNumber; x++) {
+                let cur = 4 * (y * columnNumber + x);
+                points[cur] = xStep * x - 1;
+                points[cur + 1] = yStep * y - 1;
+                points[cur + 2] = xStep * x - 1 + 0.02;//+0.03 for initial movement -1 to center in clipspace
+                points[cur + 3] = yStep * y - 1 + 0.02;
+            }
+        }
+        return points;
+    }
 }
 
 var urlParams = window.location.search;
@@ -294,8 +313,8 @@ if (!urlParams.includes('?') || !urlParamsValid) {
     urlParams.set('clickForce', '100');
     urlParams.set('clickRadius', '500');
     urlParams.set('viscosity', '0.99');
-    urlParams.set('columns', Math.floor(window.innerWidth / 40));
-    urlParams.set('rows', Math.floor(window.innerHeight / 40));
+    urlParams.set('columns', Math.floor(window.innerWidth / 100));
+    urlParams.set('rows', Math.floor(window.innerHeight / 100));
 
     window.location.search = urlParams;
 
