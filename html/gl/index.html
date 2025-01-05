@@ -1,9 +1,22 @@
-<canvas id="canvas"></canvas>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hello</title>
+  <link rel="stylesheet" href="Style.css">
+  <meta name="description" content="yeah">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<canvas id="dummy"></canvas>
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="theme-color" content="#fafafa">
+</head>
+
+<body>
+  <canvas id="canvas"></canvas>
+
+  <canvas id="dummy"></canvas>
 
 
-<script id="update-vertex" type="x-shader/x-vertex">#version 300 es // WebGL2 uses GLSL ES 3.0
+  <script id="update-vertex" type="x-shader/x-vertex">#version 300 es // WebGL2 uses GLSL ES 3.0
 
   // Vertex position input
   in vec2 aPosition;
@@ -20,7 +33,7 @@
   }
 </script>
 
-<script id="update-fragment" type="x-shader/x-fragment">#version 300 es // WebGL2 uses GLSL ES 3.0
+  <script id="update-fragment" type="x-shader/x-fragment">#version 300 es // WebGL2 uses GLSL ES 3.0
   precision mediump float;
 
   in vec2 vTexCoord;
@@ -28,14 +41,24 @@
   uniform sampler2D points;
   uniform float drag;
   uniform float screenRatio;
+  uniform bool mousePush;
+  uniform float pushForce;
+  uniform float pushRadius;
+  uniform vec2 mouseCoord;
 
   out vec4 fragColor;
 
   void main() {
     vec4 point = texture(points, vTexCoord);
 
-    fragColor.zw = point.xy;
+    if(mousePush){
+      float d = distance(mouseCoord, point.xy);
+      if(d < pushRadius){
+        point.zw += pushForce * (mouseCoord - point.xy) / d;
+      }
+    }
 
+    fragColor.zw = point.xy;
     //new position += displacement from old position * drag
     point.xy = point.xy + (point.xy - point.zw) * drag;
 
@@ -56,7 +79,7 @@
 
 </script>
 
-<script id="vertex-draw-particles" type="x-shader/x-vertex">#version 300 es // WebGL2 uses GLSL ES 3.0 
+  <script id="vertex-draw-particles" type="x-shader/x-vertex">#version 300 es // WebGL2 uses GLSL ES 3.0 
   in vec4 a_position; //particles are stored in array with previous particle values, so vec4 needed but only use xy
 
   void main() {
@@ -66,7 +89,7 @@
   }
 </script>
 
-<script id="fragment-draw-particles" type="x-shader/x-fragment">#version 300 es // WebGL2 uses GLSL ES 3.0
+  <script id="fragment-draw-particles" type="x-shader/x-fragment">#version 300 es // WebGL2 uses GLSL ES 3.0
   precision mediump float;
 
   out vec4 fragColor;
@@ -77,10 +100,11 @@
 
 </script>
 
-<script src="https://greggman.github.io/webgl-lint/webgl-lint.js"></script>
-<script src="webgl-utils.js"></script>
-<script src="background.js"></script>
+  <script src="https://greggman.github.io/webgl-lint/webgl-lint.js"></script>
+  <script src="webgl-utils.js"></script>
+  <script src="background.js"></script>
 
+</body>
 
 
 
@@ -142,8 +166,8 @@
     colour = colorCache[floor(distance(a_origin, a_position) * 5.0)];
   }
   </script>
-  <!-- fragment shader -->
-  <script id="fragment-shader-2d" type="x-shader/x-fragment">
+<!-- fragment shader -->
+<script id="fragment-shader-2d" type="x-shader/x-fragment">
   precision mediump float;
   
   in vec4 colour

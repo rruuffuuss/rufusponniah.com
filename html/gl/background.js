@@ -19,6 +19,13 @@ function main() {
     //let points = new Float32Array(pointsNumber * 4);
     var pingpong = false;
 
+    let mouseTimer;
+    let mousePush = false;
+    let mousePushForce = 0;
+    let mousePushRadius = 0;
+    let mouseCoords = [0,0];
+
+
     /*
     var points = new Float32Array([
         0.2, 0.2, 0.6, 0.6,
@@ -45,7 +52,12 @@ function main() {
 
     const pong = gl.createTexture();
     const ping = gl.createTexture();
+
     var textureUniform;
+    var mousePushUniformLocation;
+    var pushForceUniformLocation;
+    var pushRadiusUniformLocation;
+    var mouseCoordUniformLocation;
 
 
     // Setup draw graphics library
@@ -193,14 +205,21 @@ function main() {
         // Get the uniform locations
         const dragUniformLocation = gl.getUniformLocation(updateProgram, "drag");
         const screenUniformLocation = gl.getUniformLocation(updateProgram, "screenRatio");
+        mousePushUniformLocation = gl.getUniformLocation(updateProgram, "mousePush");
+        pushForceUniformLocation = gl.getUniformLocation(updateProgram, "pushForce");
+        pushRadiusUniformLocation = gl.getUniformLocation(updateProgram, "pushRadius");
+        mouseCoordUniformLocation = gl.getUniformLocation(updateProgram, "mouseCoord");
+
+        //set initial values in mouse uniforms 
+        gl.uniform1i(mousePushUniformLocation, mousePush);
+        gl.uniform1f(pushForceUniformLocation, mousePushForce);
+        gl.uniform1f(pushRadiusUniformLocation, mousePushRadius);
+        gl.uniform2f(mouseCoordUniformLocation, mouseCoords[0], mouseCoords[1]);
+
 
         gl.uniform1f(dragUniformLocation, drag);
-
         gl.uniform1f(screenUniformLocation, window.innerHeight / window.innerWidth);
 
-        //#############################
-        //###RENDER FULL SCREEN QUAD###
-        //#############################
 
         // Define quad vertices (NDC: normalized device coordinates)
         const quadVertices = new Float32Array([
@@ -242,6 +261,16 @@ function main() {
         //put the bound texture in the texture uniform
         gl.uniform1i(textureUniform, 0);
 
+        //put mouse information into uniforms
+        gl.uniform1i(mousePushUniformLocation, mousePush);
+
+        //only set other uniforms if mouse is currently pushing
+        if(mousePush){
+            gl.uniform1f(pushForceUniformLocation, mousePushForce);
+            gl.uniform1f(pushRadiusUniformLocation, mousePushRadius);
+            gl.uniform2f(mouseCoordUniformLocation, mouseCoords[0], mouseCoords[1]);
+        }
+
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
         //###########################
@@ -252,21 +281,55 @@ function main() {
     }
 
     function generatePoints() {
-        let xStep = 2 / columnNumber;
-        let yStep = 2 * (window.innerHeight / window.innerWidth)  / rowNumber;
+        let xStep = 2 / (columnNumber - 1);
+        let yStep = 2 * (window.innerHeight / window.innerWidth) / (rowNumber - 1);
+        let yOffset = (window.innerHeight / window.innerWidth);
 
         let points = new Float32Array(4 * columnNumber * rowNumber);
         for (let y = 0; y <= rowNumber; y++) {
             for (let x = 0; x <= columnNumber; x++) {
                 let cur = 4 * (y * columnNumber + x);
                 points[cur] = xStep * x - 1;
-                points[cur + 1] = yStep * y - 1;
-                points[cur + 2] = xStep * x - 1 + 0.02;//+0.03 for initial movement -1 to center in clipspace
-                points[cur + 3] = yStep * y - 1 + 0.02;
+                points[cur + 1] = yStep * y - yOffset;
+                points[cur + 2] = xStep * x - 1; //+ 0.01 * x / columnNumber;//+0.03 for initial movement -1 to center in clipspace
+                points[cur + 3] = yStep * y - yOffset;// + 0.01 * x / columnNumber;
             }
         }
         return points;
     }
+
+    window.addEventListener('resize', function () {
+        main();
+    });
+
+
+    document.addEventListener("mousemove", function (event) {
+        clearTimeout(mouseTimer);
+        mousePush = true;
+        mousePushForce = pushForce;
+        mousePushRadius = pushRadius;
+        mouseCoords = [ (2 * event.clientX / window.innerWidth) - 1, (-2 * event.clientY / window.innerHeight) + 1];
+        mouseTimer = setTimeout(() => {
+            if (mousePushForce < clickForce) {
+                mousePush = false;
+            }
+        }, 50);
+        //console.log(mousePushForce);
+    });
+
+
+    document.addEventListener("mousedown", function (event) {
+        clearTimeout(mouseTimer);
+        mousePush = true;
+        mousePushForce = clickForce;
+        mousePushRadius = clickRadius;
+        mouseCoords = [ (2 * event.clientX / window.innerWidth) - 1, (-2 * event.clientY / window.innerHeight) + 1];
+        mouseTimer = setTimeout(() => {
+            if (mousePushForce < clickForce) {
+                mousePush = false;
+            }
+        }, 50);
+    });
 }
 
 var urlParams = window.location.search;
@@ -308,10 +371,10 @@ if (!urlParams.includes('?') || !urlParamsValid) {
     urlParams.set('change_these_numbers', 'if_you_want');
     urlParams.set('constrainAmount', '1');
     urlParams.set('constrainForce', '0.1');
-    urlParams.set('pushForce', '0.4');
-    urlParams.set('pushRadius', '50');
-    urlParams.set('clickForce', '100');
-    urlParams.set('clickRadius', '500');
+    urlParams.set('pushForce', '0.01');
+    urlParams.set('pushRadius', '0.05');
+    urlParams.set('clickForce', '0.05');
+    urlParams.set('clickRadius', '0.2');
     urlParams.set('viscosity', '0.99');
     urlParams.set('columns', Math.floor(window.innerWidth / 100));
     urlParams.set('rows', Math.floor(window.innerHeight / 100));
