@@ -1,5 +1,8 @@
 <canvas id="canvas"></canvas>
 
+<canvas id="dummy"></canvas>
+
+
 <script id="update-vertex" type="x-shader/x-vertex">#version 300 es // WebGL2 uses GLSL ES 3.0
 
   // Vertex position input
@@ -24,7 +27,7 @@
   
   uniform sampler2D points;
   uniform float drag;
-  uniform vec2 screen;
+  uniform float screenRatio;
 
   out vec4 fragColor;
 
@@ -33,16 +36,17 @@
 
     fragColor.zw = point.xy;
 
+    //new position += displacement from old position * drag
     point.xy = point.xy + (point.xy - point.zw) * drag;
 
     //if a point is outside the bounds of the screen, swap new and old (reverse velocity) 
-    if(point.x > screen.x || point.x < 0.0){
+    if(point.x > 1.0|| point.x < -1.0){
       fragColor.x = fragColor.z;
       fragColor.z = point.x;
     } else {
       fragColor.x = point.x;
     }
-    if(point.y > screen.y || point.y < 0.0){
+    if(point.y > screenRatio || point.y < -screenRatio){
       fragColor.y = fragColor.w;
       fragColor.w = point.y;
     } else {
@@ -52,6 +56,26 @@
 
 </script>
 
+<script id="vertex-draw-particles" type="x-shader/x-vertex">#version 300 es // WebGL2 uses GLSL ES 3.0 
+  in vec4 a_position; //particles are stored in array with previous particle values, so vec4 needed but only use xy
+
+  void main() {
+    gl_Position = vec4(a_position.xy, 0, 1);
+    //gl_Position = vec4(0, 0, 0, 1);
+    gl_PointSize = 10.0;
+  }
+</script>
+
+<script id="fragment-draw-particles" type="x-shader/x-fragment">#version 300 es // WebGL2 uses GLSL ES 3.0
+  precision mediump float;
+
+  out vec4 fragColor;
+
+  void main() {
+    fragColor = vec4(1, 0, 0.5, 1); // return redish-purple
+  }
+
+</script>
 
 <script src="https://greggman.github.io/webgl-lint/webgl-lint.js"></script>
 <script src="webgl-utils.js"></script>
