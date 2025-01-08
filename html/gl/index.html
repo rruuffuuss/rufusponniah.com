@@ -101,14 +101,14 @@
       constrain(texture(points, vTexCoord + vec2(0, textureDisplacement.y)).xy, vec2(0, 1));
       constrain(texture(points, vTexCoord - vec2(0, textureDisplacement.y)).xy, vec2(0, -1));
 
-      
+      /*
       constrain(texture(points, vTexCoord + textureDisplacement.xy).xy, vec2(1, 1));
       constrain(texture(points, vTexCoord - textureDisplacement.xy).xy, vec2(-1, -1));
       constrain(texture(points, vTexCoord + textureDisplacement.xy * vec2(-1, 1)).xy, vec2(-1, 1));
       constrain(texture(points, vTexCoord + textureDisplacement.xy * vec2(1, -1)).xy, vec2(1, -1));
       
 
-      /*
+      
       // find the mean displacement of attached particles
       vec2 displacementSum = (
       texture(points, vTexCoord + textureDisplacement.x).xy
