@@ -1324,7 +1324,7 @@
     return results.length
         ? results.join(' | ')
         : `0x${v.toString(16)}`;
-  }r
+  }
 
   const isIE = /*@cc_on!@*/false || !!document.documentMode;
   // Edge 20+
