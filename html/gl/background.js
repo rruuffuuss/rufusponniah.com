@@ -23,7 +23,7 @@ function main() {
     let mousePush = false;
     let mousePushForce = 0;
     let mousePushRadius = 0;
-    let mouseCoords = [0,0];
+    let mouseCoords = [0, 0];
 
 
     /*
@@ -54,10 +54,15 @@ function main() {
     const ping = gl.createTexture();
 
     var textureUniform;
+
     var mousePushUniformLocation;
     var pushForceUniformLocation;
     var pushRadiusUniformLocation;
     var mouseCoordUniformLocation;
+
+    var textureDisplacementUniformLocation;
+    var particleDisplacementUniformLocation;
+    var constrainForceUniformLocation;
 
 
     // Setup draw graphics library
@@ -69,17 +74,19 @@ function main() {
     var dr = canvas.getContext("webgl2");
 
     var positionBuffer;
+    var yEnlargeUniformLocation;
 
 
 
     updateSetup();
     drawSetup();
 
+    
     var pointsAnimation = setInterval(function () {
         updateParticles();
         drawParticles();
     }, 10);
-
+    
 
     function drawSetup() {
         if (!dr) {
@@ -87,8 +94,8 @@ function main() {
             return;
         }
 
-        const updateProgram = webglUtils.createProgramFromScripts(dr, ["vertex-draw-particles", "fragment-draw-particles"]);
-        dr.useProgram(updateProgram);
+        const drawProgram = webglUtils.createProgramFromScripts(dr, ["vertex-draw-particles", "fragment-draw-particles"]);
+        dr.useProgram(drawProgram);
 
 
         //webglUtils.resizeCanvasToDisplaySize(dr.canvas);
@@ -98,14 +105,15 @@ function main() {
         //dr.bufferData(dr.ARRAY_BUFFER, points, dr.STATIC_DRAW);
 
         // look up where the vertex data needs to go.
-        const positionAttributeLocation = dr.getAttribLocation(updateProgram, "a_position");
+        const positionAttributeLocation = dr.getAttribLocation(drawProgram, "a_position");
         dr.enableVertexAttribArray(positionAttributeLocation);
 
         dr.vertexAttribPointer(positionAttributeLocation, 4, dr.FLOAT, false, 0, 0);
         // Allocate initial memory for the buffer without setting data yet
         //dr.bufferData(dr.ARRAY_BUFFER, points.length * Float32Array.BYTES_PER_ELEMENT, dr.DYNAMIC_DRAW);
 
-
+        yEnlargeUniformLocation = dr.getUniformLocation(drawProgram, "verticalEnlarge");
+        dr.uniform1f(yEnlargeUniformLocation, window.innerWidth / window.innerHeight);
     }
 
     function drawParticles() {
@@ -175,7 +183,7 @@ function main() {
             0,
             gl.RGBA,
             gl.FLOAT,
-            null
+            points
         );
 
         gl.bindTexture(gl.TEXTURE_2D, ping);
@@ -205,10 +213,19 @@ function main() {
         // Get the uniform locations
         const dragUniformLocation = gl.getUniformLocation(updateProgram, "drag");
         const screenUniformLocation = gl.getUniformLocation(updateProgram, "screenRatio");
+
         mousePushUniformLocation = gl.getUniformLocation(updateProgram, "mousePush");
         pushForceUniformLocation = gl.getUniformLocation(updateProgram, "pushForce");
         pushRadiusUniformLocation = gl.getUniformLocation(updateProgram, "pushRadius");
         mouseCoordUniformLocation = gl.getUniformLocation(updateProgram, "mouseCoord");
+
+        textureDisplacementUniformLocation = gl.getUniformLocation(updateProgram, "textureDisplacement");
+        particleDisplacementUniformLocation = gl.getUniformLocation(updateProgram, "particleDisplacement");
+        constrainForceUniformLocation = gl.getUniformLocation(updateProgram, "constrainForce");
+
+
+        gl.uniform1f(dragUniformLocation, drag);
+        gl.uniform1f(screenUniformLocation, window.innerHeight / window.innerWidth);
 
         //set initial values in mouse uniforms 
         gl.uniform1i(mousePushUniformLocation, mousePush);
@@ -216,16 +233,16 @@ function main() {
         gl.uniform1f(pushRadiusUniformLocation, mousePushRadius);
         gl.uniform2f(mouseCoordUniformLocation, mouseCoords[0], mouseCoords[1]);
 
-
-        gl.uniform1f(dragUniformLocation, drag);
-        gl.uniform1f(screenUniformLocation, window.innerHeight / window.innerWidth);
+        gl.uniform4f(textureDisplacementUniformLocation, 1 / columnNumber, 1 / rowNumber, 1 - 1 / columnNumber, 1 - 1 / rowNumber);
+        gl.uniform2f(particleDisplacementUniformLocation, points[4] - points[0], points[5] - points[1]); //same as xStep and yStep in point generation
+        gl.uniform1f(constrainForceUniformLocation, constrainForce);
 
 
         // Define quad vertices (NDC: normalized device coordinates)
         const quadVertices = new Float32Array([
-            -1, -1,
-            1, -1,
-            -1, 1,
+            0, 0,
+            1, 0,
+            0, 1,
             1, 1
         ]);
 
@@ -265,7 +282,7 @@ function main() {
         gl.uniform1i(mousePushUniformLocation, mousePush);
 
         //only set other uniforms if mouse is currently pushing
-        if(mousePush){
+        if (mousePush) {
             gl.uniform1f(pushForceUniformLocation, mousePushForce);
             gl.uniform1f(pushRadiusUniformLocation, mousePushRadius);
             gl.uniform2f(mouseCoordUniformLocation, mouseCoords[0], mouseCoords[1]);
@@ -308,27 +325,28 @@ function main() {
         mousePush = true;
         mousePushForce = pushForce;
         mousePushRadius = pushRadius;
-        mouseCoords = [ (2 * event.clientX / window.innerWidth) - 1, (-2 * event.clientY / window.innerHeight) + 1];
+        mouseCoords = [(2 * event.clientX / window.innerWidth) - 1, ((-2 * event.clientY / window.innerHeight) + 1) * window.innerHeight / window.innerWidth]; //mult y by inverse ratio to compensate for stretch in vertex shader
         mouseTimer = setTimeout(() => {
             if (mousePushForce < clickForce) {
                 mousePush = false;
             }
-        }, 50);
+        }, 100);
         //console.log(mousePushForce);
     });
 
 
     document.addEventListener("mousedown", function (event) {
+        //updateParticles();
+        //drawParticles();
+        
         clearTimeout(mouseTimer);
         mousePush = true;
         mousePushForce = clickForce;
         mousePushRadius = clickRadius;
-        mouseCoords = [ (2 * event.clientX / window.innerWidth) - 1, (-2 * event.clientY / window.innerHeight) + 1];
+        mouseCoords = [(2 * event.clientX / window.innerWidth) - 1, (-2 * event.clientY / window.innerHeight) + 1];
         mouseTimer = setTimeout(() => {
-            if (mousePushForce < clickForce) {
-                mousePush = false;
-            }
-        }, 50);
+            mousePush = false;
+        }, 100);
     });
 }
 
@@ -370,14 +388,14 @@ if (!urlParams.includes('?') || !urlParamsValid) {
 
     urlParams.set('change_these_numbers', 'if_you_want');
     urlParams.set('constrainAmount', '1');
-    urlParams.set('constrainForce', '0.1');
-    urlParams.set('pushForce', '0.01');
-    urlParams.set('pushRadius', '0.05');
+    urlParams.set('constrainForce', '0.001');
+    urlParams.set('pushForce', '0.00005');
+    urlParams.set('pushRadius', '0.1');
     urlParams.set('clickForce', '0.05');
     urlParams.set('clickRadius', '0.2');
     urlParams.set('viscosity', '0.99');
-    urlParams.set('columns', Math.floor(window.innerWidth / 100));
-    urlParams.set('rows', Math.floor(window.innerHeight / 100));
+    urlParams.set('columns', Math.floor(window.innerWidth / 3));
+    urlParams.set('rows', Math.floor(window.innerHeight / 3));
 
     window.location.search = urlParams;
 
