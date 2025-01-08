@@ -83,7 +83,9 @@ function main() {
 
     
     var pointsAnimation = setInterval(function () {
-        updateParticles();
+        for(let i = 0; i < simulationSpeed; i++){
+            updateParticles();
+        }
         drawParticles();
     }, 10);
     
@@ -378,6 +380,7 @@ if (urlParams.includes('?')) {
         var rowNumber = Number(params.get('rows'));
         var pointsNumber = columnNumber * rowNumber;
 
+        var simulationSpeed = Number(params.get('simulationSpeed'));
     }
     catch (err) {
         urlParamsValid = false;
@@ -388,14 +391,16 @@ if (!urlParams.includes('?') || !urlParamsValid) {
 
     urlParams.set('change_these_numbers', 'if_you_want');
     urlParams.set('constrainAmount', '1');
-    urlParams.set('constrainForce', '0.001');
+    urlParams.set('constrainForce', '0.0024');
     urlParams.set('pushForce', '0.00005');
     urlParams.set('pushRadius', '0.1');
     urlParams.set('clickForce', '0.05');
     urlParams.set('clickRadius', '0.2');
     urlParams.set('viscosity', '0.99');
-    urlParams.set('columns', Math.floor(window.innerWidth / 3));
-    urlParams.set('rows', Math.floor(window.innerHeight / 3));
+    urlParams.set('columns', Math.floor(window.innerWidth / 5));
+    urlParams.set('rows', Math.floor(window.innerHeight / 5));
+
+    urlParams.set('simulationSpeed', '5');
 
     window.location.search = urlParams;
 
