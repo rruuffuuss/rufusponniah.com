@@ -397,10 +397,10 @@ if (!urlParams.includes('?') || !urlParamsValid) {
     urlParams.set('clickForce', '0.05');
     urlParams.set('clickRadius', '0.2');
     urlParams.set('viscosity', '0.99');
-    urlParams.set('columns', Math.floor(window.innerWidth / 5));
-    urlParams.set('rows', Math.floor(window.innerHeight / 5));
+    urlParams.set('columns', Math.floor(window.innerWidth / 4));
+    urlParams.set('rows', Math.floor(window.innerHeight / 4));
 
-    urlParams.set('simulationSpeed', '7');
+    urlParams.set('simulationSpeed', '10');
 
     window.location.search = urlParams;
 
