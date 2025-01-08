@@ -33,7 +33,7 @@
   </script>
 
   <script id="update-fragment" type="x-shader/x-fragment">#version 300 es // WebGL2 uses GLSL ES 3.0
-  precision highp float;
+  precision mediump float;
 
   in vec2 vTexCoord;
   
@@ -135,7 +135,7 @@
   void main() {
     gl_Position = vec4(a_position.x, a_position.y * verticalEnlarge, 0, 1);
     //gl_Position = vec4(0, 0, 0, 1);
-    gl_PointSize = 2.0;
+    gl_PointSize = 1.0;
   }
 </script>
 
