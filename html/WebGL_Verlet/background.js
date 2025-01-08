@@ -345,7 +345,7 @@ function main() {
         mousePush = true;
         mousePushForce = clickForce;
         mousePushRadius = clickRadius;
-        mouseCoords = [(2 * event.clientX / window.innerWidth) - 1, (-2 * event.clientY / window.innerHeight) + 1];
+        mouseCoords = [(2 * event.clientX / window.innerWidth) - 1, ((-2 * event.clientY / window.innerHeight) + 1) * window.innerHeight / window.innerWidth]; //mult y by inverse ratio to compensate for stretch in vertex shader
         mouseTimer = setTimeout(() => {
             mousePush = false;
         }, 100);
@@ -391,7 +391,7 @@ if (!urlParams.includes('?') || !urlParamsValid) {
 
     urlParams.set('change_these_numbers', 'if_you_want');
     urlParams.set('constrainAmount', '1');
-    urlParams.set('constrainForce', '0.0024');
+    urlParams.set('constrainForce', '0.0017');
     urlParams.set('pushForce', '0.00005');
     urlParams.set('pushRadius', '0.1');
     urlParams.set('clickForce', '0.05');
@@ -400,7 +400,7 @@ if (!urlParams.includes('?') || !urlParamsValid) {
     urlParams.set('columns', Math.floor(window.innerWidth / 5));
     urlParams.set('rows', Math.floor(window.innerHeight / 5));
 
-    urlParams.set('simulationSpeed', '5');
+    urlParams.set('simulationSpeed', '7');
 
     window.location.search = urlParams;
 
