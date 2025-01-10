@@ -57,10 +57,10 @@ if (!urlParams.includes('?') || !urlParamsValid) {
 
 
 const colorCache = [];
-for (let d2 = 0; d2 <= 765; d2++) {
-    const r = Math.min(Math.max(255 - d2 * 4, 0), 255);
-    const g = Math.min(Math.max(510 - d2 * 4, 0), 255);
-    const b = Math.min(Math.max(765 - d2 * 4, 0), 255);
+for (let d2 = 0; d2 <= 765 * 4; d2++) {
+    const r = Math.min(Math.max(255 - d2, 0), 255);
+    const g = Math.min(Math.max(455 - d2, 0), 255);
+    const b = Math.min(Math.max(655 - d2, 0), 255);
     colorCache[d2] = `rgb(${r},${g},${b})`;
 }
 
@@ -123,9 +123,8 @@ class Point {
 
   draw() {
     
-    let d2 = Math.floor(Math.abs(this.x - this.originX) + Math.abs(this.y - this.originY));
+    let d2 = Math.floor(Math.abs(this.x - this.originX) + Math.abs(this.y - this.originY) * 4);
     this.ctx.fillStyle = colorCache[d2];
-    console.log(d2);
     this.ctx.fillRect(this.drawX, this.drawY, pointSquareWidth, pointSquareHeight);
 
     /*
@@ -272,7 +271,7 @@ function setupBackground() {
   pointsAnimation = setInterval(function () { updateAll(points) }, 10);
 }
 // Call the drawBackground function
-setupBackground();
+setupBackground(pointsAnimation);
 
 console.log("loaded");
 
