@@ -538,7 +538,7 @@ if (!urlParams.includes('?') || !urlParamsValid) {
 
     urlParams.set('simulationSpeed', '10');
 
-    urlParams.set('mode', 'cellMde')
+    urlParams.set('mode', 'cellMode')
 
     window.location.search = urlParams;
 
