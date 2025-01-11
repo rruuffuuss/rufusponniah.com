@@ -40,8 +40,12 @@ function main() {
     ]);*/
 
     var points = generatePoints();
+    const homePoints = generateCells(points);
+    const cellDisplay = generateDrawCells();
 
     console.log(points);
+    console.log(homePoints);
+    console.log(cellDisplay);
 
     // Setup update graphics library
     /** @type {HTMLCanvasElement} */
@@ -64,6 +68,8 @@ function main() {
     var particleDisplacementUniformLocation;
     var constrainForceUniformLocation;
 
+    updateSetup();
+
 
     // Setup draw graphics library
     /** @type {HTMLCanvasElement} */
@@ -72,23 +78,93 @@ function main() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     var dr = canvas.getContext("webgl2");
+    console.log(mode);
+    if (mode != 'cellMode') {
+        console.log('mode is cellmode');
+        var positionBuffer;
+        var yEnlargeUniformLocation;
 
-    var positionBuffer;
-    var yEnlargeUniformLocation;
+        drawSetup();
+    } else {
+        console.log('mode not cellmode');
+        var currentPositionBuffer;
+        var homePositionBuffer;
+        var drawPositionBuffer;
+        var sizeUniform;
+        cellSetup();
+    }
 
 
-
-    updateSetup();
-    drawSetup();
-
-    
     var pointsAnimation = setInterval(function () {
-        for(let i = 0; i < simulationSpeed; i++){
+        for (let i = 0; i < simulationSpeed; i++) {
             updateParticles();
         }
-        drawParticles();
+        drawCells();
     }, 10);
+
     
+
+
+    function cellSetup() {
+        if (!dr) {
+            console.error("WebGL 2.0 not supported.");
+            return;
+        }
+
+        const drawProgram = webglUtils.createProgramFromScripts(dr, ["vertex-draw-cells", "fragment-draw-cells"]);
+        dr.useProgram(drawProgram);
+
+
+        //webglUtils.resizeCanvasToDisplaySize(dr.canvas);
+
+        currentPositionBuffer = dr.createBuffer();
+        dr.bindBuffer(dr.ARRAY_BUFFER, currentPositionBuffer);
+        const currentPositionAttributeLocation = dr.getAttribLocation(drawProgram, "a_curPosition");
+        dr.enableVertexAttribArray(currentPositionAttributeLocation);
+        dr.vertexAttribPointer(currentPositionAttributeLocation, 4, dr.FLOAT, false, 0, 0);
+
+        homePositionBuffer = dr.createBuffer();
+        dr.bindBuffer(dr.ARRAY_BUFFER, homePositionBuffer);
+        const homePositionAttributeLocation = dr.getAttribLocation(drawProgram, "a_homePosition");
+        dr.enableVertexAttribArray(homePositionAttributeLocation);
+        dr.vertexAttribPointer(homePositionAttributeLocation, 2, dr.FLOAT, false, 0, 0);
+        dr.bufferData(dr.ARRAY_BUFFER, homePoints, dr.STATIC_DRAW)
+
+        drawPositionBuffer = dr.createBuffer();
+        dr.bindBuffer(dr.ARRAY_BUFFER, drawPositionBuffer);
+        const drawPositionAttributeLocation = dr.getAttribLocation(drawProgram, "a_drawPosition");
+        dr.enableVertexAttribArray(drawPositionAttributeLocation);
+        dr.vertexAttribPointer(drawPositionAttributeLocation, 2, dr.FLOAT, false, 0, 0);
+        dr.bufferData(dr.ARRAY_BUFFER, cellDisplay, dr.STATIC_DRAW)
+        
+        
+        sizeUniform = dr.getUniformLocation(drawProgram, "u_size");
+        dr.uniform1f(sizeUniform, window.innerWidth / textureWidth);
+    }
+
+    function drawCells() {
+
+        dr.bindBuffer(dr.ARRAY_BUFFER, currentPositionBuffer); 
+        dr.bufferData(dr.ARRAY_BUFFER, points, dr.DYNAMIC_DRAW)
+
+        dr.viewport(0, 0, canvas.width, canvas.height);
+        dr.clearColor(0, 0, 0, 0);
+        dr.clear(dr.COLOR_BUFFER_BIT);
+
+        dr.drawArrays(dr.POINTS, 0, textureHeight * textureWidth);
+        /*
+        // Update the buffer with the latest points data
+        dr.bindBuffer(dr.ARRAY_BUFFER, positionBuffer); // Ensure the correct buffer is bound
+        dr.bufferSubData(dr.ARRAY_BUFFER, 0, points);   // Update only the buffer's data
+
+        // Clear the canvas
+        dr.clearColor(0, 0, 0, 0);
+        dr.clear(dr.COLOR_BUFFER_BIT);
+
+        dr.drawArrays(dr.TRIANGLES, 0, textureHeight * textureWidth);
+        */
+    }
+
 
     function drawSetup() {
         if (!dr) {
@@ -317,6 +393,48 @@ function main() {
         return points;
     }
 
+    function generateCells(points) {
+
+        let cells = new Float32Array(points.length / 2);
+
+        for (let i = 0; i < points.length; i += 4) {
+            cells[i / 2] = points[i];
+            cells[(i / 2) + 1] = points[i + 1];
+        }
+
+        return cells
+
+        /*
+        let xStep = 2 / (columnNumber - 1);
+        let yStep = 2 / (rowNumber - 1);
+
+        cells = new Array(points.length * 2 - rowNumber);
+
+        for (let y = 0; y <= rowNumber - 1; y++) {
+            for (let x = 0; x <= columnNumber; x++) {
+                cells[2 * (y + x)] = points[y + x];
+                cells[2 * (y + x) + 1] = points[y + columnNumber + x];
+            }
+        }*/
+    }
+
+    function generateDrawCells(points){
+        let xStep = 2 / (columnNumber - 1);
+        let yStep = 2 / (rowNumber - 1);
+
+        let cells = new Float32Array(2 * columnNumber * rowNumber)
+
+        for (let y = 0; y <= rowNumber; y++) {
+            for (let x = 0; x <= columnNumber; x++) {
+                let cur = 2 * (y * columnNumber + x); 
+                cells[cur] = xStep * x - 1;
+                cells[cur + 1] = yStep * y - 1;
+            }
+        }
+
+        return cells;
+    }
+
     window.addEventListener('resize', function () {
         main();
     });
@@ -340,7 +458,7 @@ function main() {
     document.addEventListener("mousedown", function (event) {
         //updateParticles();
         //drawParticles();
-        
+
         clearTimeout(mouseTimer);
         mousePush = true;
         mousePushForce = clickForce;
@@ -381,6 +499,8 @@ if (urlParams.includes('?')) {
         var pointsNumber = columnNumber * rowNumber;
 
         var simulationSpeed = Number(params.get('simulationSpeed'));
+
+        var mode = params.get('mode');
     }
     catch (err) {
         urlParamsValid = false;
@@ -401,6 +521,8 @@ if (!urlParams.includes('?') || !urlParamsValid) {
     urlParams.set('rows', Math.floor(window.innerHeight / 4));
 
     urlParams.set('simulationSpeed', '10');
+
+    urlParams.set('mode', 'cellMode')
 
     window.location.search = urlParams;
 
