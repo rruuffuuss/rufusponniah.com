@@ -45,6 +45,7 @@
   uniform float pushForce;
   uniform float pushRadius;
   uniform vec2 mouseCoord;
+  uniform int constrainRepeats;
 
   //textureDisplacement.z = 1 -textureDisplacement.x, textureDisplacement.w = 1 -textureDisplacement.y
   uniform vec4 textureDisplacement; // used to get adjacent texels from texture and set fixed points on edges
@@ -54,11 +55,11 @@
 
   out vec4 fragColor;
 
-  void constrain(vec2 attachedParticle, vec2 displacementLoc){
+  void constrain(vec2 attachedParticle, float displacementLoc){
     vec2 d = attachedParticle - fragColor.xy;
-    float d2 = sqrt(length(d));
-    float push = constrainForce * ((d2 - length(particleDisplacement * displacementLoc)) / d2); 
-    if(push > 0.0) fragColor.zw -= push * d;
+    float d2 = length(d);
+    float push = constrainForce * ((d2 - displacementLoc) / d2); 
+    fragColor.zw -= push * d;
   }
 
   void main() {
@@ -97,10 +98,12 @@
         fragColor.y = point.y;
       }
 
-      constrain(texture(points, vTexCoord + vec2(textureDisplacement.x, 0)).xy, vec2(1, 0));
-      constrain(texture(points, vTexCoord - vec2(textureDisplacement.x, 0)).xy, vec2(-1, 0));
-      constrain(texture(points, vTexCoord + vec2(0, textureDisplacement.y)).xy, vec2(0, 1));
-      constrain(texture(points, vTexCoord - vec2(0, textureDisplacement.y)).xy, vec2(0, -1));
+      for(int i = 0; i < constrainRepeats; i++){
+        constrain(texture(points, vTexCoord + vec2(textureDisplacement.x, 0)).xy, particleDisplacement.x);
+        constrain(texture(points, vTexCoord - vec2(textureDisplacement.x, 0)).xy, particleDisplacement.x);
+        constrain(texture(points, vTexCoord + vec2(0, textureDisplacement.y)).xy, particleDisplacement.y);
+        constrain(texture(points, vTexCoord - vec2(0, textureDisplacement.y)).xy, particleDisplacement.y);
+      }
 
       /*
       constrain(texture(points, vTexCoord + textureDisplacement.xy).xy, vec2(1, 1));
@@ -167,13 +170,13 @@
     float len = length(a_curPosition.xy - a_homePosition) / 2.0;
 
     v_color = vec4(
-      len, 
-      len, 
-      len,
+      len * 2.0,
+      len * 4.0,
+      len * 16.0,
       1.0
     );
 
-    gl_PointSize = 10.0;
+    gl_PointSize = u_size;
 
   }
 
