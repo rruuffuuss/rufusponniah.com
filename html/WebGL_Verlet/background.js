@@ -43,9 +43,16 @@ function main() {
     const homePoints = generateCells(points);
     const cellDisplay = generateDrawCells();
 
-    console.log(points);
-    console.log(homePoints);
-    console.log(cellDisplay);
+    //console.log(points);
+    //console.log(homePoints);
+    //console.log(cellDisplay);
+
+    console.log('x sep: ' + String(points[4] - points[0]));
+    console.log('y sep: ' + String(points[columnNumber * 4 + 1] - points[1]));
+    //console.log('y sep: ' + String(points[columnNumber * 8 + 1] - points[columnNumber * 4 + 1]));
+
+    console.log(columnNumber);
+    console.log(rowNumber);
 
     // Setup update graphics library
     /** @type {HTMLCanvasElement} */
@@ -67,6 +74,7 @@ function main() {
     var textureDisplacementUniformLocation;
     var particleDisplacementUniformLocation;
     var constrainForceUniformLocation;
+    var constrainRepeatsUniformLocation;
 
     updateSetup();
 
@@ -85,6 +93,8 @@ function main() {
         var yEnlargeUniformLocation;
 
         drawSetup();
+
+        var draw = function(){drawParticles();};
     } else {
         console.log('mode not cellmode');
         var currentPositionBuffer;
@@ -92,14 +102,17 @@ function main() {
         var drawPositionBuffer;
         var sizeUniform;
         cellSetup();
+
+        var draw = function(){drawCells();};
     }
 
+    
 
     var pointsAnimation = setInterval(function () {
         for (let i = 0; i < simulationSpeed; i++) {
             updateParticles();
         }
-        drawCells();
+        draw();
     }, 10);
 
     
@@ -139,7 +152,7 @@ function main() {
         
         
         sizeUniform = dr.getUniformLocation(drawProgram, "u_size");
-        dr.uniform1f(sizeUniform, window.innerWidth / textureWidth);
+        dr.uniform1f(sizeUniform, 1.01 * window.innerWidth / textureWidth);
     }
 
     function drawCells() {
@@ -300,6 +313,8 @@ function main() {
         textureDisplacementUniformLocation = gl.getUniformLocation(updateProgram, "textureDisplacement");
         particleDisplacementUniformLocation = gl.getUniformLocation(updateProgram, "particleDisplacement");
         constrainForceUniformLocation = gl.getUniformLocation(updateProgram, "constrainForce");
+        constrainRepeatsUniformLocation = gl.getUniformLocation(updateProgram, "constrainRepeats");
+
 
 
         gl.uniform1f(dragUniformLocation, drag);
@@ -312,8 +327,9 @@ function main() {
         gl.uniform2f(mouseCoordUniformLocation, mouseCoords[0], mouseCoords[1]);
 
         gl.uniform4f(textureDisplacementUniformLocation, 1 / columnNumber, 1 / rowNumber, 1 - 1 / columnNumber, 1 - 1 / rowNumber);
-        gl.uniform2f(particleDisplacementUniformLocation, points[4] - points[0], points[5] - points[1]); //same as xStep and yStep in point generation
+        gl.uniform2f(particleDisplacementUniformLocation, points[4] - points[0], points[columnNumber * 4 + 1] - points[1]); //same as xStep and yStep in point generation
         gl.uniform1f(constrainForceUniformLocation, constrainForce);
+        gl.uniform1i(constrainRepeatsUniformLocation, constrainAmount);
 
 
         // Define quad vertices (NDC: normalized device coordinates)
@@ -327,7 +343,7 @@ function main() {
         // Upload the quad vertices to the GPU
         const quadBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.DYNAMIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
 
         // Bind and draw the quad
         // Get the location of the position attribute in the shader
@@ -517,12 +533,12 @@ if (!urlParams.includes('?') || !urlParamsValid) {
     urlParams.set('clickForce', '0.05');
     urlParams.set('clickRadius', '0.2');
     urlParams.set('viscosity', '0.99');
-    urlParams.set('columns', Math.floor(window.innerWidth / 4));
-    urlParams.set('rows', Math.floor(window.innerHeight / 4));
+    urlParams.set('columns', Math.floor(window.innerWidth / 8));
+    urlParams.set('rows', Math.floor(window.innerHeight / 8));
 
     urlParams.set('simulationSpeed', '10');
 
-    urlParams.set('mode', 'cellMode')
+    urlParams.set('mode', 'cellMde')
 
     window.location.search = urlParams;
 
