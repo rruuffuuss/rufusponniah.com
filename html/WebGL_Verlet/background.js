@@ -532,7 +532,7 @@ if (!urlParams.includes('?') || !urlParamsValid) {
     urlParams.set('pushRadius', '0.1');
     urlParams.set('clickForce', '0.05');
     urlParams.set('clickRadius', '0.2');
-    urlParams.set('viscosity', '0.99');
+    urlParams.set('viscosity', '0.993');
     urlParams.set('columns', Math.floor(window.innerWidth / 8));
     urlParams.set('rows', Math.floor(window.innerHeight / 8));
 

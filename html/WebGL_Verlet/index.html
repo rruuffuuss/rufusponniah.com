@@ -57,9 +57,9 @@
 
   void constrain(vec2 attachedParticle, float displacementLoc){
     vec2 d = attachedParticle - fragColor.xy;
-    float d2 = length(d);
+    float d2 = sqrt(length(d));
     float push = constrainForce * ((d2 - displacementLoc) / d2); 
-    fragColor.zw -= push * d;
+    if(push > 0.0) fragColor.zw -= push * d;
   }
 
   void main() {
