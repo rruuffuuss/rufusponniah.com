@@ -1,31 +1,573 @@
-<!doctype html>
-<head>
-  <meta http-equiv="refresh" content="0; url=https://rufusponniah.com/WebGL_Verlet/" />
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Hello</title>
-  <link rel="stylesheet" href="Style.css">
-  <meta name="description" content="">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!DOCTYPE html>
+<html>
 
-  <meta property="og:title" content="">
-  <meta property="og:type" content="">
-  <meta property="og:url" content="">
-  <meta property="og:image" content="">
-  <meta property="og:image:alt" content="">
+<script id="update-vertex" type="x-shader/x-vertex">#version 300 es // WebGL2 uses GLSL ES 3.0
 
-  <link rel="manifest" href="site.webmanifest">
-  <meta name="theme-color" content="#fafafa">
+    // Vertex position input
+    in vec2 aPosition;
+    
+    // Output texture coordinates to the fragment shader
+    out vec2 vTexCoord;
+    
+    void main() {
+        vTexCoord = aPosition;
+    
+        // Set the final position of the vertex in clip space
+        gl_Position = vec4((aPosition * 2.0) - 1.0, 0.0, 1.0);
+    }
+    </script>
+
+<script id="update-fragment" type="x-shader/x-fragment">#version 300 es // WebGL2 uses GLSL ES 3.0
+    precision mediump float;
+  
+    in vec2 vTexCoord;
+    
+    uniform sampler2D points;
+    uniform float drag;
+    uniform float screenRatio;
+    uniform bool mousePush;
+    uniform float pushForce;
+    uniform float pushRadius;
+    uniform vec2 mouseCoord;
+    uniform int constrainRepeats;
+  
+    //textureDisplacement.z = 1 -textureDisplacement.x, textureDisplacement.w = 1 -textureDisplacement.y
+    uniform vec4 textureDisplacement; // used to get adjacent texels from texture and set fixed points on edges
+  
+    uniform vec2 particleDisplacement; // starting distance between particles, used to calculate constraints
+    uniform float constrainForce;
+  
+    out vec4 fragColor;
+  
+    void constrain(vec2 attachedParticle, float displacementLoc){
+      vec2 d = attachedParticle - fragColor.xy;
+      float d2 = sqrt(length(d));
+      float push = constrainForce * ((d2 - displacementLoc) / d2); 
+      if(push > 0.0) fragColor.zw -= push * d;
+    }
+  
+    void main() {
+      vec4 point = texture(points, vTexCoord);
+  
+      //push, update & constrain the particle if it is not on an edge particle
+      if(vTexCoord.x > textureDisplacement.x + textureDisplacement.x
+      && vTexCoord.x < textureDisplacement.z - textureDisplacement.x
+      && vTexCoord.y > textureDisplacement.y 
+      && vTexCoord.y < textureDisplacement.w){
+  
+        //push particles with the mouse
+        if(mousePush){
+          float d = distance(mouseCoord, point.xy);
+          if(d < pushRadius){
+            point.zw += pushForce * (mouseCoord - point.xy) / d;
+          }
+        }
+  
+        //update the position of the particle
+        fragColor.zw = point.xy;
+        //new position += displacement from old position * drag
+        point.xy = point.xy + (point.xy - point.zw) * drag;
+  
+        //if a point is outside the bounds of the screen, swap new and old (reverse velocity) 
+        if(point.x > 1.0|| point.x < -1.0){
+          fragColor.x = fragColor.z;
+          fragColor.z = point.x;
+        } else {
+          fragColor.x = point.x;
+        }
+        if(point.y > screenRatio || point.y < -screenRatio){
+          fragColor.y = fragColor.w;
+          fragColor.w = point.y;
+        } else {
+          fragColor.y = point.y;
+        }
+  
+        for(int i = 0; i < constrainRepeats; i++){
+          constrain(texture(points, vTexCoord + vec2(textureDisplacement.x, 0)).xy, particleDisplacement.x);
+          constrain(texture(points, vTexCoord - vec2(textureDisplacement.x, 0)).xy, particleDisplacement.x);
+          constrain(texture(points, vTexCoord + vec2(0, textureDisplacement.y)).xy, particleDisplacement.y);
+          constrain(texture(points, vTexCoord - vec2(0, textureDisplacement.y)).xy, particleDisplacement.y);
+        }
+  
+        /*
+        constrain(texture(points, vTexCoord + textureDisplacement.xy).xy, vec2(1, 1));
+        constrain(texture(points, vTexCoord - textureDisplacement.xy).xy, vec2(-1, -1));
+        constrain(texture(points, vTexCoord + textureDisplacement.xy * vec2(-1, 1)).xy, vec2(-1, 1));
+        constrain(texture(points, vTexCoord + textureDisplacement.xy * vec2(1, -1)).xy, vec2(1, -1));
+        
+  
+        
+        // find the mean displacement of attached particles
+        vec2 displacementSum = (
+        texture(points, vTexCoord + textureDisplacement.x).xy
+        + texture(points, vTexCoord + textureDisplacement.y).xy
+        + texture(points, vTexCoord - textureDisplacement.x).xy
+        + texture(points, vTexCoord - textureDisplacement.y).xy
+        ) / 4.0 - fragColor.xy;
+        
+        // move previous position away from displacement to apply a force against it
+        fragColor.zw -= displacementSum * constrainForce;
+        */
+      } else {
+        fragColor = point;
+      }
+    }
+  
+  </script>
+
+<script id="vertex-draw-particles" type="x-shader/x-vertex">#version 300 es // WebGL2 uses GLSL ES 3.0 
+    in vec4 a_position; //particles are stored in array with previous particle values, so vec4 needed but only use xy
+  
+    uniform float verticalEnlarge; //particles calculations performed with respect to screen dimensions so must be stretched during draw to fill entire screen
+  
+    void main() {
+      gl_Position = vec4(a_position.x, a_position.y * verticalEnlarge, 0, 1);
+      //gl_Position = vec4(0, 0, 0, 1);
+      gl_PointSize = 1.0;
+    }
+  </script>
+
+<script id="fragment-draw-particles" type="x-shader/x-fragment">#version 300 es // WebGL2 uses GLSL ES 3.0
+    precision mediump float;
+  
+    out vec4 fragColor;
+  
+    void main() {
+      fragColor = vec4(1, 0, 0.5, 1); // return redish-purple
+    }
+  
+  </script>
+
+
+<script id="vertex-draw-cells" type="x-shader/x-vertex">#version 300 es // WebGL2 uses GLSL ES 3.0 
+    in vec4 a_curPosition;
+    in vec2 a_homePosition;
+    in vec2 a_drawPosition;
+  
+    uniform float u_size;
+  
+    out vec4 v_color;
+  
+    void main() {
+      gl_Position = vec4(a_drawPosition.x, a_drawPosition.y, 0, 1);
+  
+      float len = length(a_curPosition.xy - a_homePosition) / 2.0;
+  
+      v_color = vec4(
+        len * 2.0,
+        len * 4.0,
+        len * 16.0,
+        1.0
+      );
+  
+      gl_PointSize = u_size;
+  
+    }
+  
+   
+  </script>
+
+<script id="fragment-draw-cells" type="x-shader/x-fragment">#version 300 es // WebGL2 uses GLSL ES 3.0
+    precision mediump float;
+  
+    in vec4 v_color;
+    out vec4 fragColor;
+  
+    void main(){
+      fragColor = v_color;
+    }
+  </script>
+
+
+<head lang="en">
+    <meta charset="UTF-8">
+
+    <!--Page Title-->
+    <title>Rufus Ponniah</title>
+
+    <!--Meta Keywords and Description-->
+    <meta name="keywords" content="">
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+
+    <!--Favicon-->
+    <link rel="shortcut icon" href="images/icon.ico" title="icon" />
+
+    <!-- Main CSS Files -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Namari Color CSS -->
+    <link rel="stylesheet" href="css/namari-color.css">
+
+    <!--Icon Fonts - Font Awesome Icons-->
+    <link rel="stylesheet" href="css/font-awesome.min.css">
+
+    <!-- Animate CSS-->
+    <link href="css/animate.css" rel="stylesheet" type="text/css">
+
+    <!--Google Webfonts-->
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700,800' rel='stylesheet' type='text/css'>
 </head>
 
 <body>
-<div class="centered">
-  click somewhere!
-  <p><a href="url=https://rufusponniah.com/WebGL_Verlet/">Version 2</a></p>
 
-</div>
-<canvas id="backgroundCanvas">
-<script src="background.js"></script>
-</canvas>
+    <canvas id="canvas"></canvas>
+
+    <canvas id="dummy"></canvas>
+
+    <!-- Preloader -->
+    <div id="preloader">
+        <div id="status" class="la-ball-triangle-path">
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+    <!--End of Preloader-->
+
+    <div class="page-border" data-wow-duration="0.7s" data-wow-delay="0.2s">
+        <div class="top-border wow fadeInDown animated" style="visibility: visible; animation-name: fadeInDown;"></div>
+        <div class="right-border wow fadeInRight animated" style="visibility: visible; animation-name: fadeInRight;">
+        </div>
+        <div class="bottom-border wow fadeInUp animated" style="visibility: visible; animation-name: fadeInUp;"></div>
+        <div class="left-border wow fadeInLeft animated" style="visibility: visible; animation-name: fadeInLeft;"></div>
+    </div>
+
+    <div id="wrapper">
+
+        <header id="banner" class="scrollto clearfix" data-enllax-ratio=".5">
+            <div id="header" class="nav-collapse">
+                <div class="row clearfix">
+                    <div class="col-1">
+
+                        <!--Logo-->
+                        <div id="logo">
+
+                            <!--Logo that is shown on the banner-->
+                            <!--<img src="images/logo.png" id="banner-logo" alt="Landing Page" />-->
+                            <!--End of Banner Logo-->
+                            <h1 id="banner-logo" alt="Landing Page">RUFUS PONNIAH</h1>
+
+                            <!--The Logo that is shown on the sticky Navigation Bar-->
+                            <!--<img src="images/logo-2.png" id="navigation-logo" alt="Landing Page" />-->
+                            <!--End of Navigation Logo-->
+                            <h1 id="navigation-logo" alt="Landing Page">RUFUS PONNIAH</h1>
+
+                        </div>
+                        <!--End of Logo-->
+
+                        <aside>
+
+                            <!--Social Icons in Header-->
+                            <ul class="social-icons">
+                                <li>
+                                    <a target="_blank" title="EMail" href="mailto:mail@rufusponniah.com">
+                                        <i class="fa fa-email fa-1x">✉</i><span>EMail</span>
+                                    </a>
+                                </li>
+                                <!--
+                                <li>
+                                    <a target="_blank" title="Instagram" href="http://www.instagram.com/rrufuss_">
+                                        <i class="fa fa-instagram fa-1x"></i><span>Instagram</span>
+                                    </a>
+                                </li>
+                                -->
+                            </ul>
+                            <!--End of Social Icons in Header-->
+
+                        </aside>
+
+                        <!--Main Navigation-->
+                        <nav id="nav-main">
+
+                            <ul>
+                                <li>
+                                    <a href="#banner">Home</a>
+                                </li>
+                                <li>
+                                    <a href="#services">About</a>
+                                </li>
+                                <li>
+                                    <a href="#links">Links</a>
+                                </li>
+                                <!--
+                                <li>
+                                    <a href="#gallery">Gallery</a>
+                                </li>
+                                <li>
+                                    <a href="#services">Services</a>
+                                </li>
+                                <li>
+                                    <a href="#testimonials">Testimonials</a>
+                                </li>
+                                <li>
+                                    <a href="#clients">Clients</a>
+                                </li>
+                                <li>
+                                    <a href="#pricing">Pricing</a>
+                                </li>
+                                -->
+                            </ul>
+
+
+                        </nav>
+                        <!--End of Main Navigation-->
+
+                        <div id="nav-trigger"><span></span></div>
+                        <nav id="nav-mobile"></nav>
+
+                    </div>
+                </div>
+            </div><!--End of Header-->
+
+            <!--Banner Content-->
+            <div id="banner-content" class="row clearfix">
+
+                <div class="col-38">
+
+                    <div class="section-heading">
+                        <h1>HELLO THERE</h1>
+                        <h2>
+                            I thought I ought to have a personal website so<br>
+                            I've thrown this together. Mind you - I don't<br>
+                            actually have anything of significance to put here,<br>
+                            nor do I have any web development experience.<br>
+                            Enjoy.<br><br><br><br><br><br><br><br><br>
+
+                        </h2>
+                    </div>
+
+                    <!--Call to Action
+                    <a href="#" class="button">This button doesn't do anything</a>
+                    End Call to Action-->
+
+                </div>
+
+            </div><!--End of Row-->
+        </header>
+
+        <!--Main Content Area-->
+        <main id="content">
+
+            <!--Content Section-->
+            <div id="services" class="scrollto clearfix">
+
+
+
+
+                <div class="row no-padding-bottom clearfix">
+
+                    <div class="col-3">
+                        <div class="section-heading">
+                            <!--<h3>BELIEVING</h3>-->
+                            <h2 class="section-title">ABOUT</h2>
+                            <p class="section-subtitle">I like writing code, lifting weights, climbing and driving my
+                                MX5 with the roof down.</p>
+                        </div>
+                    </div>
+
+                    <!--Content of the Right Side-->
+                    <div class="col-3">
+
+                        <p  class="text-justify">
+                            Chances are, the person looking at this website is most interested in the "writing code"
+                            part of that list, so I will elaborate on it further.
+                            I have one and a half years of professional experience as an engineer working on payment
+                            exception and investigation software, primarily using Java, Pega Smart Investigate and the
+                            SWIFT messaging network. <br>
+                            I also study DTS:Software Engineering BSc (Hons) at the University of Strathclyde as part of
+                            a degree apprenticeship program, which I am due to graduate in 2027.
+                        </p>
+                        <!--
+                        <a href="#" data-videoid="UYJ5IjBRlW8" data-videosite="youtube"
+                            class="button video link-lightbox">
+                            WATCH VIDEO <i class="fa fa-play" aria-hidden="true"></i>
+                        </a>
+                        -->
+                    </div>
+                    <!--End Content Right Side-->
+
+                    <!--Content Left Side-->
+                    <div class="col-3">
+                        <!--User Testimonial
+                                    <blockquote class="testimonial text-right bigtest">
+                                        <q>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt
+                                            ut
+                                            labore
+                                            et dolore magna aliqua</q>
+                                        <footer>— John Doe, Happy Customer</footer>
+                                    </blockquote>
+                                    End of Testimonial-->
+
+                        <p class="text-justify">
+                            Outside of work, I <a href="https://github.com/rruuffuuss">tinker</a> with a wide range of
+                            technologies. I usually
+                            keep a project on the go outside of work and compete in the occasional hackathon (with
+                            varying degrees of success). <br>
+                            I'm yet to find a specific language/technology/niche that I'm certain I want to specialize
+                            in, preferring to expose myself to broad range of technologies and gain a high level
+                            understanding of the wider computer science ecosystem whilst at the start of my career.
+
+                            So far, I have found that I particularly enjoy writing code that is performance oriented,
+                            working on projects that require knowledge of mathematics and using languages & technologies
+                            that allow some lower level control over hardware.
+                        </p>
+
+                    </div>
+                    <!--End Content Left Side-->
+
+                    <!--
+                                <div class="col-3">
+                                    <img src="images/dancer.jpg" alt="Dancer" />
+                                </div>-->
+
+                </div>
+
+
+            </div>
+            <!--End of Content Section-->
+
+            <!--Links-->
+            <section id="links" class="scrollto clearfix">
+                <div class="row clearfix">
+
+                    <div class="col-3">
+
+                        <div class="section-heading">
+                            <!--<h3>TRUST</h3>-->
+                            <h2 class="section-title">Links</h2>
+                            <p class="section-subtitle">
+                                Please don't hesitate to reach out if you have any questions.
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <div class="col-2-3">
+
+                        <a href="https://discord.gg/yaGmUWa7" class="col-3">
+                            <img src="images/company-images/discord-logo.png" alt="Discord" />
+                            <div class="client-overlay"><span>Discord</span></div>
+                        </a>
+                        <a href="www.linkedin.com/in/rufus-ponniah-2b6004253" class="col-3">
+                            <img src="images/company-images/linkedin-logo.png" alt="LinkedIn" />
+                            <div class="client-overlay"><span>LinkedIn</span></div>
+                        </a>
+                        <a href="https://www.instagram.com/rrufuss_/" class="col-3">
+                            <img src="images/company-images/instagram-logo.png" alt="Instagram" />
+                            <div class="client-overlay"><span>Instagram</span></div>
+                        </a>
+                        <a href="https://github.com/rruuffuuss" class="col-3">
+                            <img src="images/company-images/github-logo.png" alt="GitHub" />
+                            <div class="client-overlay"><span>GitHub</span></div>
+                        </a>
+                        <a href="https://www.reddit.com/user/Informal-Flounder-79/" class="col-3">
+                            <img src="images/company-images/reddit-logo.png" alt="Reddit" />
+                            <div class="client-overlay"><span>Reddit</span></div>
+                        </a>
+                        <a href="https://steamcommunity.com/profiles/76561198837971196/" class="col-3">
+                            <img src="images/company-images/steam-logo.png" alt="Steam" />
+                            <div class="client-overlay"><span>Steam</span></div>
+                        </a>
+                        <!--
+                        <a href="#" class="col-3">
+                            <img src="images/company-images/company-logo7.png" alt="Company" />
+                            <div class="client-overlay"><span>Ball</span></div>
+                        </a>
+                        <a href="#" class="col-3">
+                            <img src="images/company-images/company-logo8.png" alt="Company" />
+                            <div class="client-overlay"><span>Cold</span></div>
+                        </a>
+
+                        <a href="#" class="col-3">
+                            <img src="images/company-images/company-logo9.png" alt="Company" />
+                            <div class="client-overlay"><span>Cold</span></div>
+                        </a>
+                        -->
+
+                    </div>
+
+                </div>
+            </section>
+            <!--End of Links-->
+
+
+
+
+            <!--Gallery-->
+            <aside id="gallery" class="row text-center scrollto clearfix" data-featherlight-gallery
+                data-featherlight-filter="a">
+
+                <a href="images/gallery-images/keyboards.png" data-featherlight="image" class="col-3 wow fadeIn"
+                    data-wow-delay="0.1s"><img src="images/gallery-images/keyboards.png" alt="Landing Page" />Keyboard
+                    Rotation</a>
+                <a href="images/gallery-images/dogs.JPEG" data-featherlight="image" class="col-3 wow fadeIn"
+                    data-wow-delay="0.3s"><img src="images/gallery-images/dogs.JPEG" alt="Landing Page" />Dogs</a>
+                <a href="images/gallery-images/car.JPEG" data-featherlight="image" class="col-3 wow fadeIn"
+                    data-wow-delay="0.5s"><img src="images/gallery-images/car.JPEG" alt="Landing Page" />Miot</a>
+
+                <!--
+                <a href="images/gallery-images/gallery-image-4.jpg" data-featherlight="image" class="col-3 wow fadeIn"
+                    data-wow-delay="1.1s"><img src="images/gallery-images/gallery-image-4.jpg" alt="Landing Page" /></a>
+                <a href="images/gallery-images/gallery-image-5.jpg" data-featherlight="image" class="col-3 wow fadeIn"
+                    data-wow-delay="0.9s"><img src="images/gallery-images/gallery-image-5.jpg" alt="Landing Page" /></a>
+                <a href="images/gallery-images/gallery-image-6.jpg" data-featherlight="image" class="col-3 wow fadeIn"
+                    data-wow-delay="0.7s"><img src="images/gallery-images/gallery-image-6.jpg" alt="Landing Page" /></a>
+                -->
+
+            </aside>
+            <!--End of Gallery-->
+
+
+
+        </main>
+        <!--End Main Content Area-->
+
+
+        <!--Footer-->
+        <footer id="landing-footer" class="clearfix">
+            <div class="row clearfix">
+
+                <p id="copyright" class="col-2">
+                    &copy; 2024 Rufus Ponniah
+                    
+                    <!--Made with love by <a href="https://www.shapingrain.com">ShapingRain</a>-->
+                </p>
+
+
+                <!--Social Icons in Footer-->
+                <ul class="col-2 social-icons">
+                    <li>
+                        <a target="_blank" title="EMail" href="mailto:mail@rufusponniah.com">
+                            <i class="fa fa-email fa-1x">✉</i><span>EMail</span>
+                        </a>
+                    </li>
+                </ul>
+                <!--End of Social Icons in Footer-->
+            </div>
+        </footer>
+        <!--End of Footer-->
+
+    </div>
+
+    <!-- Include JavaScript resources -->
+    <script src="js/jquery.1.8.3.min.js"></script>
+    <script src="js/wow.min.js"></script>
+    <script src="js/featherlight.min.js"></script>
+    <script src="js/featherlight.gallery.min.js"></script>
+    <script src="js/jquery.enllax.min.js"></script>
+    <script src="js/jquery.scrollUp.min.js"></script>
+    <script src="js/jquery.easing.min.js"></script>
+    <script src="js/jquery.stickyNavbar.min.js"></script>
+    <script src="js/jquery.waypoints.min.js"></script>
+    <script src="js/images-loaded.min.js"></script>
+    <script src="js/lightbox.min.js"></script>
+    <script src="js/site.js"></script>
+
+    <script src="https://greggman.github.io/webgl-lint/webgl-lint.js"></script>
+    <script src="background/webgl-utils.js"></script>
+    <script src="background/background.js"></script>
+
 </body>
+
 </html>

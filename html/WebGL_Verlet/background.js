@@ -451,10 +451,6 @@ function main() {
         return cells;
     }
 
-    window.addEventListener('resize', function () {
-        main();
-    });
-
 
     function move (event) {
         clearTimeout(mouseTimer);
@@ -490,6 +486,7 @@ function main() {
     document.addEventListener("touchmove", move);
     document.addEventListener("touchend", click);
 }
+
 
 var urlParams = window.location.search;
 var urlParamsValid = true;
@@ -548,5 +545,10 @@ if (!urlParams.includes('?') || !urlParamsValid) {
     window.location.search = urlParams;
 
 }
+
+window.addEventListener('resize', function () {
+    
+    main();
+});
 
 main();
