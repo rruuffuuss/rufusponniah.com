@@ -456,7 +456,7 @@ function main() {
     });
 
 
-    document.addEventListener("mousemove", function (event) {
+    function move (event) {
         clearTimeout(mouseTimer);
         mousePush = true;
         mousePushForce = pushForce;
@@ -468,10 +468,10 @@ function main() {
             }
         }, 100);
         //console.log(mousePushForce);
-    });
+    }
 
 
-    document.addEventListener("mousedown", function (event) {
+    function click (event) {
         //updateParticles();
         //drawParticles();
 
@@ -483,7 +483,12 @@ function main() {
         mouseTimer = setTimeout(() => {
             mousePush = false;
         }, 100);
-    });
+    }
+
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mousedown", click);
+    document.addEventListener("touchmove", move);
+    document.addEventListener("touchend", click);
 }
 
 var urlParams = window.location.search;
