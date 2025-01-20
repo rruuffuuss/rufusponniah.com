@@ -89,7 +89,7 @@ function main() {
     canvas.height = window.innerHeight;
     var dr = canvas.getContext("webgl2");
     console.log(mode);
-    if (mode != 'cellMode') {
+    if (mode == 'particle') {
         console.log('mode is cellmode');
         var positionBuffer;
         var yEnlargeUniformLocation;
@@ -97,20 +97,29 @@ function main() {
         drawSetup();
 
         var draw = function () { drawParticles(); };
-    } else {
+    } else if (mode == 'cellBlock' || mode == 'cellInterpolate') {
         console.log('mode not cellmode');
         var currentPositionBuffer;
         var homePositionBuffer;
         var drawPositionBuffer;
-        var sizeUniform;
-        cellSetup();
 
-        var draw = function () { drawCells(); };
+        if (mode == 'cellBlock') {
+            var sizeUniform;
+            blockCellSetup();
+            var draw = function () { drawBlockCells(); };
+        } else if (mode == 'cellInterpolate') {
+            var indices = [];
+            interpolateCellSetup();
+            var draw = function () { drawInterpolateCells(); };
+        }
+
+
     }
 
 
 
     pointsAnimation = setInterval(function () {
+
         for (let i = 0; i < simulationSpeed; i++) {
             updateParticles();
         }
@@ -118,14 +127,7 @@ function main() {
     }, 10);
 
 
-    function cellSetup() {
-        if (!dr) {
-            console.error("WebGL 2.0 not supported.");
-            return;
-        }
-
-        const drawProgram = webglUtils.createProgramFromScripts(dr, ["vertex-draw-cells", "fragment-draw-cells"]);
-        dr.useProgram(drawProgram);
+    function cellSetup(drawProgram) {
 
 
         //webglUtils.resizeCanvasToDisplaySize(dr.canvas);
@@ -150,12 +152,25 @@ function main() {
         dr.vertexAttribPointer(drawPositionAttributeLocation, 2, dr.FLOAT, false, 0, 0);
         dr.bufferData(dr.ARRAY_BUFFER, cellDisplay, dr.STATIC_DRAW)
 
+    }
+
+    function blockCellSetup() {
+        if (!dr) {
+            console.error("WebGL 2.0 not supported.");
+            return;
+        }
+
+        const drawProgram = webglUtils.createProgramFromScripts(dr, ["vertex-draw-cells", "fragment-draw-cells"]);
+        dr.useProgram(drawProgram);
+
+
+        cellSetup(drawProgram);
 
         sizeUniform = dr.getUniformLocation(drawProgram, "u_size");
         dr.uniform1f(sizeUniform, 1.04 * Math.max(window.innerWidth / textureWidth, window.innerHeight / textureHeight));
     }
 
-    function drawCells() {
+    function drawBlockCells() {
 
         dr.bindBuffer(dr.ARRAY_BUFFER, currentPositionBuffer);
         dr.bufferData(dr.ARRAY_BUFFER, points, dr.DYNAMIC_DRAW)
@@ -165,6 +180,65 @@ function main() {
         dr.clear(dr.COLOR_BUFFER_BIT);
 
         dr.drawArrays(dr.POINTS, 0, textureHeight * textureWidth);
+        /*
+        // Update the buffer with the latest points data
+        dr.bindBuffer(dr.ARRAY_BUFFER, positionBuffer); // Ensure the correct buffer is bound
+        dr.bufferSubData(dr.ARRAY_BUFFER, 0, points);   // Update only the buffer's data
+
+        // Clear the canvas
+        dr.clearColor(0, 0, 0, 0);
+        dr.clear(dr.COLOR_BUFFER_BIT);
+
+        dr.drawArrays(dr.TRIANGLES, 0, textureHeight * textureWidth);
+        */
+    }
+
+
+    function interpolateCellSetup() {
+        if (!dr) {
+            console.error("WebGL 2.0 not supported.");
+            return;
+        }
+
+        const drawProgram = webglUtils.createProgramFromScripts(dr, ["vertex-draw-interpolateCells", "fragment-draw-interpolateCells"]);
+        dr.useProgram(drawProgram);
+
+
+        cellSetup(drawProgram);
+
+        //setup indeces
+        for (let y = 0; y < rowNumber - 1; y++) {
+            for (let x = 0; x < columnNumber; x++) {
+                const top = y * columnNumber + x;
+                const bottom = (y + 1) * columnNumber + x;
+
+                indices.push(top, bottom);
+            }
+
+            // Add a degenerate triangle to move to the next row
+            if (y < rowNumber - 2) {
+                indices.push((y + 1) * columnNumber + (columnNumber - 1), (y + 1) * columnNumber);
+            }
+        }
+
+        console.log(indices);
+        console.log(points.length);
+
+        const indexBuffer = dr.createBuffer();
+        dr.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        dr.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+    }
+
+    function drawInterpolateCells() {
+
+        dr.bindBuffer(dr.ARRAY_BUFFER, currentPositionBuffer);
+        dr.bufferData(dr.ARRAY_BUFFER, points, dr.DYNAMIC_DRAW)
+
+        dr.viewport(0, 0, canvas.width, canvas.height);
+        dr.clearColor(0, 0, 0, 0);
+        dr.clear(dr.COLOR_BUFFER_BIT);
+
+        dr.drawElements(dr.TRIANGLE_STRIP, indices.length, gl.UNSIGNED_SHORT, 0);
         /*
         // Update the buffer with the latest points data
         dr.bindBuffer(dr.ARRAY_BUFFER, positionBuffer); // Ensure the correct buffer is bound
@@ -370,11 +444,12 @@ function main() {
         pingpong = !pingpong;
 
         //put the bound texture in the texture uniform
+
+
         gl.uniform1i(textureUniform, 0);
 
         //put mouse information into uniforms
         gl.uniform1i(mousePushUniformLocation, mousePush);
-
         //only set other uniforms if mouse is currently pushing
         if (mousePush) {
             gl.uniform1f(pushForceUniformLocation, mousePushForce);
@@ -389,6 +464,7 @@ function main() {
         //###########################
 
         gl.readPixels(0, 0, textureWidth, textureHeight, gl.RGBA, gl.FLOAT, points);
+
     }
 
     function generatePoints() {
@@ -450,11 +526,6 @@ function main() {
 
         return cells;
     }
-
-    window.addEventListener('resize', function () {
-        main();
-    });
-
 
     function move(event) {
         clearTimeout(mouseTimer);
@@ -544,7 +615,7 @@ if (!urlParams.includes('?') || !urlParamsValid) {
 
     urlParams.set('simulationSpeed', '10');
 
-    urlParams.set('mode', 'cellMode')
+    urlParams.set('mode', 'cellInterpolate')
 
     window.location.search = urlParams;
 
@@ -568,10 +639,11 @@ if(window.mobileAndTabletCheck) {
         window.location.href = url;
     });
 }*/
-
+var resizeTimeout;
 var pointsAnimation;
 
-window.addEventListener('resize', function () {
+
+/*function reset() {
     clearInterval(pointsAnimation);
 
     clearTimeout(resizeTimeout);
@@ -580,6 +652,10 @@ window.addEventListener('resize', function () {
         initialWindowHeight = window.innerHeight;
         main();
     }, 300);
-});
+}*/
+
+
+
+//window.addEventListener('resize', reset());
 
 main();
