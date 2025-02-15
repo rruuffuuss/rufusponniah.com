@@ -593,6 +593,10 @@ if (urlParams.includes('?')) {
         var simulationSpeed = Number(params.get('simulationSpeed'));
 
         var mode = params.get('mode');
+
+        if(constrainAmount === null || !constrainForce || !pushForce || !pushRadius || !clickForce || !clickRadius || !drag || !columnNumber || !rowNumber || !pointsNumber || !simulationSpeed){
+            urlParamsValid = false;
+        }
     }
     catch (err) {
         urlParamsValid = false;
